@@ -1,0 +1,26 @@
+filebeat.inputs:
+  # 收集nginx日志
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/access.log
+    # 日志是json开启这个
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+
+#-------------------------- Redis output ------------------------------
+# output.redis:
+#   enabled: true
+#   hosts: ["docker-redis:6379"]   #输出到redis的机器
+# #  password: "password"
+#   key: "nginx_logs"   #redis中日志数据的key值ֵ
+#   db: 0
+#   timeout: 5
+
+# -------------------------------- Kafka Output --------------------------------
+output.kafka:
+  # Boolean flag to enable or disable the output module.
+  enabled: true
+  hosts: ["kafka:9092"]
+  topic: beats

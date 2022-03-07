@@ -1,0 +1,130 @@
+version: '3.4'
+
+networks:
+  web-network:
+
+services:
+  grafana:
+    image: grafana/grafana:8.4.3
+    container_name: grafana
+    hostname: grafana
+    ports:
+      - 3000:3000
+    volumes:  
+      - ./grafana/conf/sample.ini:/usr/share/grafana/conf/sample.ini
+    networks:
+      - web-network
+
+  docker-nginx:
+    image: nginx:1.21.3
+    ports:
+      - 80:80
+    restart: always
+    tty: true
+    volumes:
+      - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf
+      - ../log/nginx:/var/log/nginx
+    networks:
+      - web-network
+
+  docker-redis:
+    image: redis:6.2.5
+    restart: always
+    tty: true
+    command: redis-server /etc/redis.conf
+    volumes:
+      - ./redis/conf/redis.conf:/etc/redis.conf
+      - ../log/redis:/var/log/redis
+      - ../apps/redis/data:/var/lib/redis
+    ports:
+      - 6379:6379
+    networks:
+      - web-network
+
+  elasticsearch:
+    image: elasticsearch:7.17.0
+    container_name: elasticsearch
+    restart: always
+    tty: true
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - ../apps/elasticsearch/data:/usr/share/elasticsearch/data:rw
+      - ./elasticsearch/conf/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    ports:
+      - 9200:9200
+    networks:
+      - web-network
+
+  kibana:
+    image: kibana:7.17.0
+    container_name: kibana
+    restart: always
+    tty: true
+    #    environment:
+    #      - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200"
+    volumes:
+      - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+    ports:
+      - 5601:5601
+    networks:
+      - web-network
+
+  logstash:
+    image: logstash:7.17.0
+    container_name: logstash
+    restart: always
+    tty: true
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+      - ./logstash/GeoLite2-City.mmdb:/usr/share/logstash/GeoLite2-City.mmdb
+    ports:
+      - 5044:5044
+    networks:
+      - web-network
+
+  filebeat:
+    image: elastic/filebeat:7.17.0
+    container_name: filebeat
+    restart: always
+    tty: true
+    environment:
+      - ELASTICSEARCH_HOSTS=["elasticsearch:9200"]
+    #      - ELASTICSEARCH_USERNAME="admin"
+    #      - ELASTICSEARCH_PASSWORD="123"
+    volumes:
+      - ../apps/filebeat/data:/usr/share/filebeat/data
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ../log/nginx:/var/log/nginx
+    networks:
+      - web-network
+
+  zookeeper:
+    image: bitnami/zookeeper:3.7.0
+    restart: always
+    tty: true
+    volumes:
+      - ../apps/zookeeper/data:/bitnami
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    networks:
+      - web-network
+
+  kafka:
+    image: bitnami/kafka:3.1.0
+    restart: always
+    tty: true
+    volumes:
+      - ../apps/kafka/data:/bitnami
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    ports:
+      - "9092:9092"
+    networks:
+      - web-network
